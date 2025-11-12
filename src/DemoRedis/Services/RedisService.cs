@@ -32,10 +32,10 @@ public class RedisService
 
         return data;
     }
-    
+
     // Инкремент счётчика
     public Task<long> IncrementAsync(string key) => _db.StringIncrementAsync(key);
-    
+
     // Блокировка без возможности снятия вручную, только по TTL
     public async Task<bool> AcquireLockAsync(string key, TimeSpan ttl)
     {
@@ -60,6 +60,23 @@ public class RedisService
 
     // Публикация сообщения в брокер сообщений (IoT)
     public Task<long> PublishAsync(string channel, string message) => _mux.GetSubscriber().PublishAsync(channel, message);
+
+    // Очередь (используем тип данных List)
+    public async Task EnqueueAsync<T>(string queueName, T item)
+    {
+        await _db.ListRightPushAsync(queueName, JsonSerializer.Serialize(item));
+    }
+
+    public async Task<T> DequeueAsync<T>(string queueName)
+    {
+        var item = await _db.ListLeftPopAsync(queueName);
+        if (item.IsNull)
+        {
+            return default;
+        }
+
+        return JsonSerializer.Deserialize<T>(item);
+    }
 
     private static string GenerateToken()
     {

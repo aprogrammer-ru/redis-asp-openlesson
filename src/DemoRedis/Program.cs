@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Caching.Distributed;
 using StackExchange.Redis;
 using Microsoft.OpenApi.Models;
+using Microsoft.AspNetCore.Mvc;
 
 #region Настройка ASP.NET приложения
 
@@ -14,15 +15,16 @@ var redisConnection = Environment.GetEnvironmentVariable("REDIS_CONNECTION") ?? 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo 
-    { 
-        Title = "Redis Demo API", 
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Redis Demo API",
         Version = "v1",
         Description = "Демонстрационное ASP.NET 9 приложение с Redis",
         Contact = new OpenApiContact
         {
-            Name = "Andrey S.",
-            Email = "andrey@aprogrammer.ru"
+            Name = "OTUS",
+            Url = new Uri("https://otus.ru")
+
         }
     });
 });
@@ -101,14 +103,14 @@ app.MapPost("/distcache/{key}", async (string key, HttpRequest req, IDistributed
 // Демонстрация использования Lazy Loading кэширования
 app.MapGet("/products/{id}", async (string id, RedisService redis) =>
 {
-   var data = await redis.GetOrSetAsync($"products:{id}", async () =>
-        {
-            // Имитация получения данных из базы данных или внешнего сервиса
-            await Task.Delay(5000);
-            return new { Id = id, Company = "OTUS", Name = "Курс ASP.NET разработчик", Mentor = "andrey@aprogrammer.ru", Duration = "6 месяцев", Timestamp = DateTime.UtcNow };
-        }, TimeSpan.FromMinutes(5));
+    var data = await redis.GetOrSetAsync($"products:{id}", async () =>
+         {
+             // Имитация получения данных из базы данных или внешнего сервиса
+             await Task.Delay(5000);
+             return new { Id = id, Company = "OTUS", Name = "Курс ASP.NET разработчик", Mentor = "andrey@aprogrammer.ru", Duration = "6 месяцев", Timestamp = DateTime.UtcNow };
+         }, TimeSpan.FromMinutes(5));
 
-        return Results.Ok(data);
+    return Results.Ok(data);
 })
 .WithName("Products")
 .WithOpenApi(operation => new(operation)
@@ -200,6 +202,34 @@ app.MapPost("/publish", async (PublishRequest req, RedisService redis) =>
 {
     Summary = "Брокер сообщений",
     Description = "Публикует сообщение в указанный канал"
+});
+
+// Очередь 
+app.MapGet("/queue/{key}", async (RedisService redis) =>
+{
+    var message = await redis.DequeueAsync<dynamic>("demo_queue");
+    if (message == null)
+    {
+        return Results.NoContent();
+    }
+
+    return Results.Ok(message);
+})
+.WithName("Dequeue")
+.WithOpenApi(operation => new(operation)
+{
+    Summary = "Прочитать сообщение из очереди (demo_queue)"
+});
+
+app.MapPost("/queue", async ([FromBody] string message, RedisService redis) =>
+{
+    await redis.EnqueueAsync("demo_queue", new { Message = message, Timestamp = DateTime.UtcNow });
+    return Results.Ok("Message enqueued.");
+})
+.WithName("Enqueue")
+.WithOpenApi(operation => new(operation)
+{
+    Summary = "Добавить сообщение в очередь (demo_queue)"
 });
 
 // Простой endpoint для проверки работоспособности
