@@ -70,7 +70,8 @@ else
 
 #region API Endpoints
 
-// Распределённый кэш используя интерфейс IDistributedCache
+#region Распределённый кэш IDistributedCache
+
 app.MapGet("/distcache/{key}", async (string key, IDistributedCache cache) =>
 {
     var bytes = await cache.GetAsync(key);
@@ -99,8 +100,9 @@ app.MapPost("/distcache/{key}", async (string key, HttpRequest req, IDistributed
     Description = "Добавление тела запроса в кэш через интерфейс IDistributedCache"
 });
 
+#endregion
 
-// Демонстрация использования Lazy Loading кэширования
+#region Демонстрация использования Lazy Loading кэширования
 app.MapGet("/products/{id}", async (string id, RedisService redis) =>
 {
     var data = await redis.GetOrSetAsync($"products:{id}", async () =>
@@ -119,7 +121,9 @@ app.MapGet("/products/{id}", async (string id, RedisService redis) =>
     Description = "Подходит для кэширования результатов длительных операций, например, фасетного поиска по каталогу продуктов"
 });
 
-// Простое ключ/значение с использованием StackExchange.Redis напрямую
+#endregion
+
+#region Простое ключ/значение с использованием StackExchange.Redis напрямую
 app.MapGet("/cache/{key}", async (string key, RedisService redis) =>
 {
     var val = await redis.GetStringAsync(key);
@@ -148,8 +152,9 @@ app.MapPost("/cache/{key}", async (string key, HttpRequest req, RedisService red
     Description = "Сохраняет значение в Redis с указанным TTL"
 });
 
+#endregion
 
-// Пример счётчика
+#region Пример счётчика
 app.MapPost("/counter/increment", async (RedisService redis) =>
 {
     var newVal = await redis.IncrementAsync("demo:counter");
@@ -161,8 +166,9 @@ app.MapPost("/counter/increment", async (RedisService redis) =>
     Summary = "Распределённый счётчик",
     Description = "Атомарно увеличивает значение счётчика в Redis на 1"
 });
+#endregion
 
-// Распределённые блокировки: захват и освобождение
+#region Распределённые блокировки: захват и освобождение
 app.MapPost("/lock/{key}", async (string key, LockRequest req, RedisService redis) =>
 {
     var ttl = TimeSpan.FromSeconds(req?.TtlSeconds ?? 10);
@@ -189,8 +195,9 @@ app.MapPost("/lock/{key}/release", async (string key, ReleaseLockRequest req, Re
     Summary = "Освободить блокировку",
     Description = "Освобождает распределённую блокировку с проверкой токена"
 });
+#endregion
 
-// Брокер сообщений
+#region Брокер сообщений
 app.MapPost("/publish", async (PublishRequest req, RedisService redis) =>
 {
     var channel = string.IsNullOrWhiteSpace(req.Channel) ? RedisSubscriber.Channel : req.Channel;
@@ -203,12 +210,13 @@ app.MapPost("/publish", async (PublishRequest req, RedisService redis) =>
     Summary = "Брокер сообщений",
     Description = "Публикует сообщение в указанный канал"
 });
+#endregion
 
-// Очередь 
-app.MapGet("/queue/{key}", async (RedisService redis) =>
+#region Очередь 
+app.MapGet("/queue", async (RedisService redis) =>
 {
     var message = await redis.DequeueAsync<dynamic>("demo_queue");
-    if (message == null)
+    if (message is null)
     {
         return Results.NoContent();
     }
@@ -231,6 +239,7 @@ app.MapPost("/queue", async ([FromBody] string message, RedisService redis) =>
 {
     Summary = "Добавить сообщение в очередь (demo_queue)"
 });
+#endregion
 
 // Простой endpoint для проверки работоспособности
 app.MapGet("/", () => Results.Text("Демо ASP.NET (.NET 9) + Redis - смотри README для доступных endpoints\nSwagger UI доступен по пути /swagger"));
